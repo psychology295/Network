@@ -1,7 +1,43 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.font as f
+import os
 
+
+class Initialization:
+    def __init__(self):
+        self.PCList=[]
+        self.CableList=[]
+        self.CreateCable()
+        self.CreatePC()
+        self.StartMainApp()
+        
+    def CreatePC(self):
+        for pc in os.listdir(path='Device/PC'):
+            self.PCList.append(Computer(pc))
+        for pc_obj in self.PCList:
+            f = open(f'Device/PC/{pc_obj.name}/connection.txt', 'r')
+            connect_cable=f.read()
+            for cable in self.CableList:    
+                if connect_cable == 0:
+                    break
+                elif cable.name==connect_cable:
+                    pc_obj.connect(cable)
+            f.close()
+            
+    def CreateCable(self):
+        for cable in os.listdir(path='Device/Cable'):
+            self.CableList.append(Cable(cable))
+    def StartMainApp(self):
+        App = tk.Tk()
+        App.geometry("300x500")
+        App.title('com1')
+        for c in self.PCList:
+            app=Application(root=App,c=c,CableList=self.CableList)
+        self.SelectCable=SelectCable(root=App,CableList=self.CableList)    
+        App.mainloop()
+
+    
 class Cable:
 #Cableのクラス
     def __init__(self,name):
@@ -12,17 +48,22 @@ class Cable:
     
     #接続Deviceと接続する
     def connect(self,address):
-    
         for c in range(len(self.connection)):
             if self.connection[c]==0:
-                self.connection[c]=address
+                self.connection[c]=address.name
+                f = open(f'Device/PC/{address.name}/connection.txt', 'w')
+                f.write(self.name)
+                f.close()
                 return 1
             
     #Deviceと切断する
     def disconnect(self,address):
         for c in range(len(self.connection)):
-            if self.connection[c]==address:
+            if self.connection[c]==address.name:
                 self.connection[c]=0
+                f = open(f'Device/PC/{address.name}/connection.txt', 'w')
+                f.write("0")
+                f.close()
                 return 1
         print("cannot connect")
 
@@ -36,28 +77,29 @@ class Computer:
         
     #Cableと接続する
     def connect(self,address):
-        if address.connect(self.name)==1:
+        if address.connect(self)==1:
             self.connection=address.name
         print(self.connection)
         
+        
     #Cableと切断する
     def disconnect(self,address):
-        if address.disconnect(self.name)==1:
+        if address.disconnect(self)==1:
             self.connection=0
         print(self.connection)
 
 #MainAppに表示するDeviceのFrame
 class Application(tk.Frame):
-    def __init__(self,root,c):
+    def __init__(self,root,c,CableList):
         super().__init__(root,
             width=420,height=140,
             borderwidth=4,relief='groove')
         self.pack()
         self.pack_propagate(0)
         self.root=root
-        self.create_widgets(c)
+        self.create_widgets(c,CableList)
 
-    def create_widgets(self,c):
+    def create_widgets(self,c,CableList):
         #Deviceの名前を表示
         name_lbl=tk.Label(self, justify="center",text=c.name)
         name_lbl.pack()
@@ -71,19 +113,19 @@ class Application(tk.Frame):
         #DeviceをCableに接続するボタン
         connect_btn=tk.Button(self)
         connect_btn['text']='Connect'        
-        connect_btn['command']=lambda:self.connect(c,cable1)
+        connect_btn['command']=lambda:self.connect(c,CableList[0])
         connect_btn.pack()
         
         #Deviceに接続されているCableを切断するボタン
         disconnect_btn=tk.Button(self)
         disconnect_btn['text']='Disconnect'
-        disconnect_btn['command']=lambda:self.disconnect(c,cable1)
+        disconnect_btn['command']=lambda:self.disconnect(c,CableList[0])
         disconnect_btn.pack()
 
         #DeviceのWindowを開くボタン
         browse_btn=tk.Button(self)
         browse_btn['text']='Browse'
-        browse_btn['command']=lambda:self.browse(c,cable1)
+        browse_btn['command']=lambda:self.browse(c)
         browse_btn.pack()
 
     #Connectボタンを押したときの処理
@@ -97,7 +139,7 @@ class Application(tk.Frame):
         self.lbl.set(f'connect:{c.connection}')
 
     #Browseボタンを押したときの処理
-    def browse(self,device,address):
+    def browse(self,device):
         #DeviceDialogを表示する
         DeviceDialog = tk.Tk()
         DeviceDialog.geometry("300x500")
@@ -143,11 +185,8 @@ class DeviceDialogApp(tk.Frame):
         app=DeviceDialogApp(root=DeviceDialog,device=device)
         DeviceDialog.mainloop()
 
-
-    
-
 class SelectCable(tk.Frame):
-    def __init__(self,root):
+    def __init__(self,root,CableList):
         super().__init__(root,
             width=420,height=100,
             borderwidth=4,relief='groove')
@@ -164,16 +203,4 @@ class SelectCable(tk.Frame):
         radio_1=tk.Radiobutton(self,text='Cable1',variable=self.selected_radio,value=0)
         radio_1.pack()
 
-
-com1=Computer("YaginumaPC")
-com2=Computer("FukuharaPC")
-comList=[com1,com2]
-cable1=Cable("Cable1")
-
-App = tk.Tk()
-App.geometry("300x500")
-App.title('com1')
-for c in comList:
-    app=Application(root=App,c=c)
-SelectCable=SelectCable(root=App)    
-App.mainloop()
+main=Initialization()
