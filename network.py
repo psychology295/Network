@@ -36,7 +36,6 @@ class Initialization:
             app=Application(root=App,c=c,CableList=self.CableList)
         self.SelectCable=SelectCable(root=App,CableList=self.CableList)    
         App.mainloop()
-
     
 class Cable:
 #Cableのクラス
@@ -50,22 +49,42 @@ class Cable:
     def connect(self,address):
         for c in range(len(self.connection)):
             if self.connection[c]==0:
-                self.connection[c]=address.name
+                self.connection[c]=address
                 f = open(f'Device/PC/{address.name}/connection.txt', 'w')
                 f.write(self.name)
                 f.close()
                 return 1
-            
+
     #Deviceと切断する
     def disconnect(self,address):
         for c in range(len(self.connection)):
-            if self.connection[c]==address.name:
+            if self.connection[c]==address:
                 self.connection[c]=0
                 f = open(f'Device/PC/{address.name}/connection.txt', 'w')
                 f.write("0")
                 f.close()
                 return 1
         print("cannot connect")
+    
+    def recieveMessage(self,message,pc):
+        if self.connection[0]==pc:
+            recievePort=0
+            sendPort=1
+        elif self.connection[1]==pc:
+            recievePort=1
+            sendPort=0
+        else:
+            print("Error")
+        f = open(f'Device/Cable/{self.name}/RecieveMessage.txt', 'w')
+        f.write(message)
+        f.close()
+        self.sendMessage(self,sendPort)
+        
+    def sendMessage(self,message,sendPort):
+        f = open(f'Device/Cable/{self.name}/RecieveMessage.txt', 'r')
+        message=f.read()
+        f.close()
+        self.connection[sendPort].recieveMessage(message)
 
 class Computer:
 #Computerのクラス
@@ -78,16 +97,25 @@ class Computer:
     #Cableと接続する
     def connect(self,address):
         if address.connect(self)==1:
-            self.connection=address.name
-        print(self.connection)
-        
+            self.connection=address
         
     #Cableと切断する
     def disconnect(self,address):
         if address.disconnect(self)==1:
             self.connection=0
-        print(self.connection)
 
+    def sendMessage(self):
+        f = open(f'Device/PC/{self.name}/SendMessage.txt', 'r')
+        message = f.readlines()
+        for line in message:
+            self.connection.recieveMessage(line,self)
+        f.close()
+    
+    def recieveMessage(self,message):
+        f = open(f'Device/PC/{self.name}/RecieveMessage.txt','a')
+        f.write(message)
+        f.close()  
+    
 #MainAppに表示するDeviceのFrame
 class Application(tk.Frame):
     def __init__(self,root,c,CableList):
@@ -106,7 +134,7 @@ class Application(tk.Frame):
         
         #Deviceに接続しているCableの名前
         self.lbl=tk.StringVar()
-        self.lbl.set(f'connect:{c.connection}')
+        self.lbl.set(f'connect:{c.connection.name}')
         connect_lbl=tk.Label(self, justify="center",textvariable=self.lbl)
         connect_lbl.pack()
 
@@ -131,12 +159,12 @@ class Application(tk.Frame):
     #Connectボタンを押したときの処理
     def connect(self,c,address):
         c.connect(address)
-        self.lbl.set(f'connect:{c.connection}')
+        self.lbl.set(f'connect:{c.connection.name}')
 
     #Disconnectボタンを押したときの処理
     def disconnect(self,c,address):
         c.disconnect(address)
-        self.lbl.set(f'connect:{c.connection}')
+        self.lbl.set(f'connect:{c.connection.name}')
 
     #Browseボタンを押したときの処理
     def browse(self,device):
@@ -163,18 +191,25 @@ class DeviceDialogApp(tk.Frame):
         name_lbl.pack()
         
         #Deviceに接続しているCableの名前
-        connect_lbl=tk.Label(self, justify="center",text=f'connect:{c.connection}')
+        connect_lbl=tk.Label(self, justify="center",text=f'connect:{c.connection.name}')
         connect_lbl.pack()
+
+        #Messageを送るボタン
+        send_btn=tk.Button(self)
+        send_btn['text']='Send'
+        send_btn['command']=lambda:self.sendMessage(c)
+        send_btn.pack()
+        
 
     #Connectボタンを押したときの処理
     def connect(self,c,address):
         c.connect(address)
-        self.lbl.set(f'connect:{c.connection}')
+        self.lbl.set(f'connect:{c.connection.name}')
 
     #Disconnectボタンを押したときの処理
     def disconnect(self,c,address):
         c.disconnect(address)
-        self.lbl.set(f'connect:{c.connection}')
+        self.lbl.set(f'connect:{c.connection.name}')
 
     #Browseボタンを押したときの処理
     def browse(self,device,address):
@@ -185,6 +220,10 @@ class DeviceDialogApp(tk.Frame):
         app=DeviceDialogApp(root=DeviceDialog,device=device)
         DeviceDialog.mainloop()
 
+    def sendMessage(self,pc):
+        pc.sendMessage()
+        
+    
 class SelectCable(tk.Frame):
     def __init__(self,root,CableList):
         super().__init__(root,
